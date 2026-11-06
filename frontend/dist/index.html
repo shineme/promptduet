@@ -96,6 +96,16 @@
             <textarea id="f-system" class="mono" rows="7" spellcheck="false" placeholder="你是一名……"></textarea>
             <span class="count" data-count-for="f-system">0</span>
           </div>
+          <div class="evolve" id="evolve">
+            <span class="evolve-lbl">每轮怎么改</span>
+            <div class="seg seg-sm" id="f-evolve" role="radiogroup" aria-label="每轮怎么改 Prompt">
+              <span class="seg-ink" aria-hidden="true"></span>
+              <button type="button" role="radio" aria-checked="true" data-evolve="chain">接着上一轮改</button>
+              <button type="button" role="radio" aria-checked="false" data-evolve="best">从最高分接着改</button>
+              <button type="button" role="radio" aria-checked="false" data-evolve="free">允许整篇重写</button>
+            </div>
+            <p class="evolve-desc" id="evolve-desc"></p>
+          </div>
         </div>
 
         <div class="field" data-reveal>

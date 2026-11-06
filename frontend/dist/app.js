@@ -76,6 +76,19 @@ function autosize(ta) {
 }
 
 /* sliding ink for segmented controls & nav */
+const EVOLVE_DESC = {
+  chain: "A 在上一轮的 Prompt 上逐条修改，没点名的原文一字不动。",
+  best: "上一轮退步了，就回到目前最高分的版本接着改。",
+  free: "A 每轮可以整篇重写，变化大，也容易丢掉已经有效的写法。",
+};
+function setEvolve(mode, animate) {
+  const seg = $("#f-evolve");
+  $$("button", seg).forEach((b) => b.setAttribute("aria-checked", String(b.dataset.evolve === mode)));
+  $("#evolve-desc").textContent = EVOLVE_DESC[mode] || "";
+  const ink = $(".seg-ink", seg);
+  if (!animate) ink.style.transition = "none";
+  requestAnimationFrame(() => { placeInk(seg, `[data-evolve="${mode}"]`); if (!animate) requestAnimationFrame(() => (ink.style.transition = "")); });
+}
 function placeInk(container, sel) {
   const ink = container.querySelector(".seg-ink, .nav-ink");
   const btn = container.querySelector(sel);
@@ -370,6 +383,7 @@ function fillBrief() {
   if (b.directorNotes) $("#fold-notes").open = true;
   $("#o-rounds").textContent = b.maxRounds || 10;
   $("#f-exec").checked = b.requireExecution !== false;
+  setEvolve(b.evolve || "chain", false);
   const t = $("#f-target"); t.value = b.targetScore || 9; setRangeFill(t); $("#o-target").textContent = fmt1(+t.value);
   $$("textarea").forEach((ta) => { autosize(ta); updCount(ta); });
   syncChips();
@@ -402,6 +416,10 @@ function bindBrief() {
   const t = $("#f-target");
   t.addEventListener("input", () => { S.cfg.brief.targetScore = +t.value; setRangeFill(t); $("#o-target").textContent = fmt1(+t.value); save(); });
 
+  $("#f-evolve").addEventListener("click", (e) => {
+    const bt = e.target.closest("button[data-evolve]"); if (!bt) return;
+    S.cfg.brief.evolve = bt.dataset.evolve; save(); setEvolve(bt.dataset.evolve, true);
+  });
   $("#f-exec").addEventListener("change", (e) => { S.cfg.brief.requireExecution = e.target.checked; save(); toast(e.target.checked ? "B 拒绝或只交付一部分时，A 会继续改写" : "已关闭：只看分数是否达标"); });
   $("#btn-draft").addEventListener("click", draft);
   $("#btn-start").addEventListener("click", () => (S.session && S.session.running ? stop() : start()));
@@ -755,11 +773,19 @@ function renderPrompt() {
   placeInk(seg, `[data-mode="${mode}"]`);
   if (live) { out.textContent = live.systemPrompt || "（空 System Prompt）"; notes.innerHTML = ""; return; }
   if (!r) { out.textContent = ""; notes.innerHTML = ""; return; }
-  const next = r.judgement.revised_system_prompt || r.systemPrompt;
-  if (mode === "diff") out.innerHTML = next === r.systemPrompt ? esc(next) + "\n\n<span class=\"placeholder\">（A 没有改动）</span>" : diff(r.systemPrompt, next);
+  const J = r.judgement, next = J.revised_system_prompt || r.systemPrompt;
+  // The revision may be built on an earlier, better round ("best" mode): diff against that.
+  const baseR = J.baseRound && J.baseRound !== r.index ? s.rounds.find((x) => x.index === J.baseRound) : null;
+  const basePrompt = baseR ? baseR.systemPrompt : r.systemPrompt;
+  if (mode === "diff") out.innerHTML = next === basePrompt ? esc(next) + "\n\n<span class=\"placeholder\">（A 没有改动）</span>" : diff(basePrompt, next);
   else if (mode === "next") out.textContent = next;
   else out.textContent = r.systemPrompt || "（空 System Prompt）";
-  notes.innerHTML = (r.judgement.change_notes || []).map((n, i) => `<li><span>${pad2(i + 1)}</span>${esc(n)}</li>`).join("");
+  const edits = J.edits || [];
+  const head = [];
+  if (baseR) head.push(`<li class="note-base"><span>↺</span>本轮没有超过第 ${baseR.index} 轮的 ${fmt1(baseR.judgement.score)} 分，下一版在第 ${baseR.index} 轮的 Prompt 上接着改</li>`);
+  else if (edits.length) head.push(`<li class="note-base"><span>→</span>在本轮 Prompt 上接着改 · ${edits.filter((e) => e.applied).length}/${edits.length} 处修改已应用</li>`);
+  const failed = edits.filter((e) => !e.applied).map((e) => `<li class="note-fail"><span>✕</span>未应用：${esc(e.note || "")}「${esc((e.find || e.after || "").slice(0, 40))}」</li>`);
+  notes.innerHTML = head.join("") + (J.change_notes || []).map((n, i) => `<li><span>${pad2(i + 1)}</span>${esc(n)}</li>`).join("") + failed.join("");
 }
 
 function renderCurtain() {
@@ -1025,7 +1051,7 @@ async function boot() {
   S.cfg = cfg || {
     a: { provider: "anthropic", baseURL: DEF.anthropic, apiKey: "", model: "", temperature: 0.3, maxTokens: 4096, stream: true, timeoutSec: 900, stallSec: 180 },
     b: { provider: "openai", baseURL: DEF.openai, apiKey: "", model: "", temperature: 0.7, maxTokens: 4096, stream: true, timeoutSec: 900, stallSec: 180 },
-    brief: { systemPrompt: "", userTask: "", criteria: "", directorNotes: "", maxRounds: 10, targetScore: 9, requireExecution: true },
+    brief: { systemPrompt: "", userTask: "", criteria: "", directorNotes: "", maxRounds: 10, targetScore: 9, requireExecution: true, evolve: "chain" },
   };
   for (const k of ["a", "b"]) { fillAgent(k); bindAgent(k); }
   fillBrief(); bindBrief(); bindGlobal(); bindArchive(); bindLog();

@@ -79,7 +79,7 @@ func defaultConfig() Config {
 	return Config{
 		A:     llm.Endpoint{Provider: llm.ProviderAnthropic, BaseURL: llm.DefaultAnthropicBase, Temperature: 0.3, MaxTokens: 4096, Stream: true, TimeoutSec: 900, StallSec: 180},
 		B:     llm.Endpoint{Provider: llm.ProviderOpenAI, BaseURL: llm.DefaultOpenAIBase, Temperature: 0.7, MaxTokens: 4096, Stream: true, TimeoutSec: 900, StallSec: 180},
-		Brief: duet.Brief{MaxRounds: 10, TargetScore: 9, RequireExecution: true},
+		Brief: duet.Brief{MaxRounds: 10, TargetScore: 9, RequireExecution: true, Evolve: duet.EvolveChain},
 	}
 }
 
@@ -243,7 +243,7 @@ func (a *App) Start(cfg Config) (string, error) {
 			a.mu.Unlock()
 			cancel()
 		}()
-		a.log("INFO", fmt.Sprintf("════ 对弈 %s 开始 · 最多 %d 轮 · 达标 %.1f · 拒绝即重来 %v", s.ID, cfg.Brief.MaxRounds, cfg.Brief.TargetScore, cfg.Brief.RequireExecution))
+		a.log("INFO", fmt.Sprintf("════ 对弈 %s 开始 · 最多 %d 轮 · 达标 %.1f · 拒绝即重来 %v · 改写方式 %s", s.ID, cfg.Brief.MaxRounds, cfg.Brief.TargetScore, cfg.Brief.RequireExecution, cfg.Brief.Evolve))
 		a.log("INFO", describeEndpoint("A", cfg.A))
 		a.log("INFO", describeEndpoint("B", cfg.B))
 		a.log("INFO", fmt.Sprintf("用户需求 %d 字 · 评判标准 %d 字", len([]rune(cfg.Brief.UserTask)), len([]rune(cfg.Brief.Criteria))))

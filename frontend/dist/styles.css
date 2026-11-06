@@ -694,3 +694,13 @@ input[type="range"]:disabled { opacity: .35; cursor: not-allowed; }
 .wait-line { font: 400 12px/1.6 var(--f-mono); color: var(--ink-3); }
 .wait-line.warn { color: #ffc46b; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* evolve mode under the system prompt */
+.evolve { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 10px 14px; margin-top: 12px; }
+.evolve-lbl { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.evolve .seg button[aria-checked="true"] { color: var(--ink); }
+.evolve-desc { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-3); min-width: 0; }
+@media (max-width: 1180px) { .evolve { grid-template-columns: auto 1fr; } .evolve .seg { justify-self: start; } .evolve-desc { grid-column: 1 / -1; } }
+.notes .note-base { color: var(--ink); }
+.notes .note-base span { color: var(--a); }
+.notes .note-fail { color: #ffc46b; }
