@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PromptDuet</title>
+<link rel="preload" href="fonts/serif-italic.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-min" viewBox="0 0 16 16"><path d="M3 8.5h10"/></symbol>
+    <symbol id="i-max" viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 20 20"><path d="M1.8 10S5 4.2 10 4.2 18.2 10 18.2 10 15 15.8 10 15.8 1.8 10 1.8 10Z"/><circle cx="10" cy="10" r="2.6"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 20 20"><path d="M3 3l14 14M8.2 4.5A8.6 8.6 0 0 1 10 4.2c5 0 8.2 5.8 8.2 5.8a14 14 0 0 1-2.4 3M5.3 6.4A14 14 0 0 0 1.8 10S5 15.8 10 15.8c1.3 0 2.5-.4 3.5-.9"/></symbol>
+    <symbol id="i-sync" viewBox="0 0 20 20"><path d="M16.5 10a6.5 6.5 0 0 1-11.6 4M3.5 10a6.5 6.5 0 0 1 11.6-4"/><path d="M15.5 2.8v3.4h-3.4M4.5 17.2v-3.4h3.4"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 16 16"><path d="M4.5 6.5 8 10l3.5-3.5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 20 20"><rect x="6.5" y="6.5" width="10" height="10" rx="2"/><path d="M13.5 6.5V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v7A1.5 1.5 0 0 0 5 13.5h1.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 20 20"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 20 20"><path d="M10 2.5v4M10 13.5v4M2.5 10h4M13.5 10h4M4.8 4.8l2.4 2.4M12.8 12.8l2.4 2.4M15.2 4.8l-2.4 2.4M7.2 12.8l-2.4 2.4"/></symbol>
+    <symbol id="i-play" viewBox="0 0 20 20"><path d="M6.5 4.5v11l9-5.5z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 20 20"><rect x="5" y="5" width="10" height="10" rx="1.5"/></symbol>
+    <symbol id="i-down" viewBox="0 0 20 20"><path d="M10 3.5v10M5.5 9.5 10 14l4.5-4.5M4 16.5h12"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 20 20"><path d="M4 10h12M11 5l5 5-5 5"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 20 20"><path d="M3.5 5.5h13M8 5.5V4h4v1.5M5.5 5.5l.8 10.5h7.4l.8-10.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3.5v9M3.5 8h9"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 16 16"><path d="M3.5 8h9"/></symbol>
+    <symbol id="i-log" viewBox="0 0 20 20"><path d="M4 5h12M4 10h12M4 15h7"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 20 20"><path d="M2.5 6V15a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5V8A1.5 1.5 0 0 0 16 6.5H9.5L8 4.5H4A1.5 1.5 0 0 0 2.5 6Z"/></symbol>
+    <symbol id="i-apply" viewBox="0 0 20 20"><path d="M3.5 10.5 8 15l8.5-10"/></symbol>
+  </defs>
+</svg>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="aura" aria-hidden="true"><i class="aura-a"></i><i class="aura-b"></i></div>
+
+<div id="app" data-view="studio">
+  <!-- ─────────── Title bar ─────────── -->
+  <header class="titlebar" style="--wails-draggable:drag" ondblclick="window.runtime&&window.runtime.WindowToggleMaximise()">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 24" aria-hidden="true">
+        <circle class="mark-a" cx="12" cy="12" r="9"/>
+        <circle class="mark-b" cx="28" cy="12" r="9"/>
+      </svg>
+      <span class="wordmark">Prompt<em>Duet</em></span>
+      <span class="brand-sub">提示词对弈</span>
+    </div>
+
+    <nav class="nav" role="tablist" aria-label="视图" style="--wails-draggable:no-drag">
+      <span class="nav-ink" aria-hidden="true"></span>
+      <button role="tab" data-go="studio" aria-selected="true"><b>01</b>工作台</button>
+      <button role="tab" data-go="arena" aria-selected="false"><b>02</b>对弈<i class="live-dot" aria-hidden="true"></i></button>
+      <button role="tab" data-go="archive" aria-selected="false"><b>03</b>档案</button>
+    </nav>
+
+    <div class="tb-right" style="--wails-draggable:no-drag">
+      <div class="status" id="status" data-state="idle"><i></i><span>待命</span></div>
+      <button class="log-btn" id="btn-log" type="button" aria-label="运行日志 (L)" title="运行日志 (L)"><svg><use href="#i-log"/></svg><span>日志</span><i class="log-badge" hidden></i></button>
+      <div class="winctl">
+        <button aria-label="最小化" onclick="window.runtime&&window.runtime.WindowMinimise()"><svg><use href="#i-min"/></svg></button>
+        <button aria-label="最大化" onclick="window.runtime&&window.runtime.WindowToggleMaximise()"><svg><use href="#i-max"/></svg></button>
+        <button aria-label="关闭" class="wc-close" onclick="window.runtime&&window.runtime.Quit()"><svg><use href="#i-close"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ─────────── Studio ─────────── -->
+    <section class="view view-studio is-active" id="view-studio" aria-label="工作台">
+      <div class="agent-slot" id="slot-a"></div>
+
+      <div class="brief">
+        <header class="brief-head" data-reveal>
+          <div>
+            <p class="eyebrow">Session brief · 对弈简报</p>
+            <h1 class="display">Write the brief,<br><em>let them rally.</em></h1>
+          </div>
+          <ol class="flow" aria-label="流程">
+            <li><b class="ca">A</b>写 Prompt</li>
+            <li><b class="cb">B</b>作答</li>
+            <li><b class="ca">A</b>评分 · 改写</li>
+          </ol>
+        </header>
+
+        <div class="field" data-reveal>
+          <div class="field-head">
+            <span class="idx">01</span>
+            <label for="f-system">System Prompt</label>
+            <span class="hint">B 的初始设定，可留空让 A 起草</span>
+            <button class="ghost ghost-a" id="btn-draft" type="button"><svg><use href="#i-spark"/></svg><span>A 起草</span></button>
+          </div>
+          <div class="ta-wrap">
+            <textarea id="f-system" class="mono" rows="7" spellcheck="false" placeholder="你是一名……"></textarea>
+            <span class="count" data-count-for="f-system">0</span>
+          </div>
+        </div>
+
+        <div class="field" data-reveal>
+          <div class="field-head">
+            <span class="idx">02</span>
+            <label for="f-task">用户需求</label>
+            <span class="hint">每一轮都原样发给 B</span>
+          </div>
+          <div class="ta-wrap">
+            <textarea id="f-task" rows="4" spellcheck="false" placeholder="例如：用三句话向十岁孩子解释什么是黑洞"></textarea>
+            <span class="count" data-count-for="f-task">0</span>
+          </div>
+        </div>
+
+        <div class="field" data-reveal>
+          <div class="field-head">
+            <span class="idx">03</span>
+            <label for="f-criteria">评判标准</label>
+            <span class="hint">A 据此打分</span>
+            <label class="exec" title="B 拒绝、推脱或只交付一部分时，这一轮不算达标，A 会继续改写 System Prompt">
+              <span>拒绝即重来</span>
+              <span class="switch sw-a"><input type="checkbox" id="f-exec"><i></i></span>
+            </label>
+          </div>
+          <div class="chips" id="chips" aria-label="常用标准">
+            <button type="button" data-chip="事实准确，没有编造">准确</button>
+            <button type="button" data-chip="完整回应需求的每一个要点">完整</button>
+            <button type="button" data-chip="简洁，不说废话">简洁</button>
+            <button type="button" data-chip="结构清晰，层次分明">结构</button>
+            <button type="button" data-chip="语气贴合目标读者">语气</button>
+            <button type="button" data-chip="严格遵守格式与字数要求">格式</button>
+          </div>
+          <div class="ta-wrap">
+            <textarea id="f-criteria" rows="3" spellcheck="false" placeholder="留空则使用默认标准：准确、完整、切题、结构清晰"></textarea>
+          </div>
+        </div>
+
+        <details class="field fold" id="fold-notes" data-reveal>
+          <summary class="field-head">
+            <span class="idx">04</span>
+            <span class="lbl">导演附加要求</span>
+            <span class="hint">可选 · 只给 A 看</span>
+            <svg class="fold-chev"><use href="#i-chev"/></svg>
+          </summary>
+          <div class="ta-wrap">
+            <textarea id="f-notes" rows="3" spellcheck="false" placeholder="例如：system prompt 控制在 300 字以内；不要使用英文"></textarea>
+          </div>
+        </details>
+
+      </div>
+
+      <div class="agent-slot" id="slot-b"></div>
+
+      <footer class="launch" data-reveal>
+          <div class="ctl">
+            <span class="ctl-lbl">最多轮数</span>
+            <div class="stepper">
+              <button type="button" data-step="-1" aria-label="减少轮数"><svg><use href="#i-minus"/></svg></button>
+              <output id="o-rounds">10</output>
+              <button type="button" data-step="1" aria-label="增加轮数"><svg><use href="#i-plus"/></svg></button>
+            </div>
+          </div>
+          <div class="ctl ctl-target">
+            <span class="ctl-lbl">达标分</span>
+            <div class="target">
+              <input type="range" id="f-target" min="5" max="10" step="0.5" value="9" aria-label="达标分">
+              <output id="o-target" class="num">9.0</output>
+            </div>
+          </div>
+          <button class="cta" id="btn-start" type="button">
+            <span class="cta-fill" aria-hidden="true"></span>
+            <span class="cta-label">开始对弈</span>
+            <kbd>Ctrl ↵</kbd>
+            <svg class="cta-arrow"><use href="#i-arrow"/></svg>
+          </button>
+        </footer>
+    </section>
+
+    <!-- ─────────── Arena ─────────── -->
+    <section class="view view-arena" id="view-arena" aria-label="对弈">
+      <div class="arena-empty" id="arena-empty">
+        <p class="eyebrow">Arena · 对弈台</p>
+        <h2 class="display">Nothing on stage <em>yet.</em></h2>
+        <p class="muted">在工作台配置好 A 与 B，写下需求，然后开始第一场对弈。</p>
+        <button class="ghost" data-go="studio" type="button"><span>去工作台</span><svg><use href="#i-arrow"/></svg></button>
+      </div>
+
+      <div class="arena" id="arena" hidden>
+        <div class="board">
+          <div class="board-score">
+            <p class="eyebrow" id="best-label">最佳得分</p>
+            <div class="bigscore"><span class="num" id="best-score">—</span><small>/10</small></div>
+            <div class="target-line">达标 <b class="num" id="arena-target">9.0</b></div>
+          </div>
+
+          <div class="court" id="court" data-phase="idle">
+            <svg class="court-svg" viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden="true">
+              <path class="court-line" d="M60 60 C 200 10, 400 110, 540 60"/>
+              <path class="court-trail" id="court-trail" d="M60 60 C 200 10, 400 110, 540 60"/>
+            </svg>
+            <div class="node node-a"><b>A</b><span>Director</span></div>
+            <div class="node node-b"><b>B</b><span>Performer</span></div>
+            <p class="court-caption" id="court-caption">等待开局</p>
+          </div>
+
+          <div class="board-meta">
+            <div class="roundno"><span class="num" id="round-now">00</span><small>/ <span id="round-max">10</span></small></div>
+            <p class="muted mono" id="elapsed">00:00</p>
+            <button class="ghost ghost-danger" id="btn-stop" type="button"><svg><use href="#i-stop"/></svg><span>停止</span></button>
+            <dl class="stats" id="stats"></dl>
+          </div>
+
+          <div class="chart" id="chart" aria-label="分数走势"></div>
+        </div>
+
+        <div class="arena-body">
+          <aside class="rail" id="rail" aria-label="轮次"></aside>
+
+          <div class="stage" id="stage">
+            <div class="curtain" id="curtain" hidden>
+              <div>
+                <p class="eyebrow" id="curtain-eyebrow">Curtain call · 收官</p>
+                <h3 class="curtain-title" id="curtain-title"></h3>
+              </div>
+              <div class="curtain-actions">
+                <button class="ghost" id="btn-copy-best" type="button"><svg><use href="#i-copy"/></svg><span>复制最佳 Prompt</span></button>
+                <button class="ghost" id="btn-apply-best" type="button"><svg><use href="#i-apply"/></svg><span>带回工作台</span></button>
+                <button class="ghost" id="btn-export" type="button"><svg><use href="#i-down"/></svg><span>导出 Markdown</span></button>
+              </div>
+            </div>
+
+            <header class="stage-head">
+              <div>
+                <p class="eyebrow" id="stage-eyebrow">Round</p>
+                <h2 class="display stage-title"><span id="stage-round">Round 01</span></h2>
+              </div>
+              <div class="stage-score" id="stage-score">
+                <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="ring-bg" cx="22" cy="22" r="19"/><circle class="ring" id="stage-ring" cx="22" cy="22" r="19"/></svg>
+                <span class="num" id="stage-score-num">—</span>
+              </div>
+            </header>
+            <p class="verdict" id="stage-verdict"></p>
+            <div class="refusal-banner" id="refusal-banner" hidden><b>REFUSED</b><span></span></div>
+
+            <div class="duo">
+              <article class="pane pane-b">
+                <header><span class="tag tag-b">B</span><h4>Performer 的回答</h4><span class="pane-meta mono" id="b-meta"></span><button class="icon-btn" data-copy="b" aria-label="复制回答"><svg><use href="#i-copy"/></svg></button></header>
+                <div class="pane-body md" id="b-out"></div>
+              </article>
+              <article class="pane pane-a">
+                <header><span class="tag tag-a">A</span><h4>Director 的评判</h4><span class="pane-meta mono" id="a-meta"></span></header>
+                <div class="pane-body" id="a-out"></div>
+              </article>
+            </div>
+
+            <article class="pane pane-prompt">
+              <header>
+                <span class="tag">SP</span><h4>System Prompt 演变</h4>
+                <div class="seg seg-sm" id="diff-mode" role="radiogroup" aria-label="显示方式">
+                  <span class="seg-ink" aria-hidden="true"></span>
+                  <button role="radio" aria-checked="true" data-mode="diff">差异</button>
+                  <button role="radio" aria-checked="false" data-mode="next">改写后</button>
+                  <button role="radio" aria-checked="false" data-mode="used">本轮所用</button>
+                </div>
+                <button class="icon-btn" data-copy="prompt" aria-label="复制"><svg><use href="#i-copy"/></svg></button>
+              </header>
+              <div class="pane-body mono prompt-body" id="prompt-out"></div>
+              <ul class="notes" id="change-notes"></ul>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────── Archive ─────────── -->
+    <section class="view view-archive" id="view-archive" aria-label="档案">
+      <header class="archive-head" data-reveal>
+        <div>
+          <p class="eyebrow">Archive · 档案</p>
+          <h2 class="display">Every rally, <em>kept.</em></h2>
+        </div>
+        <p class="muted" id="archive-count"></p>
+      </header>
+      <div class="archive-grid" id="archive-grid"></div>
+    </section>
+  </main>
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+</div>
+
+<template id="tpl-agent">
+  <article class="agent" data-reveal>
+    <header class="agent-head">
+      <span class="agent-letter"></span>
+      <div class="agent-name">
+        <h2 class="agent-role"></h2>
+        <p class="agent-desc"></p>
+      </div>
+      <span class="conn" data-state="off"><i></i><span>未连接</span></span>
+    </header>
+
+    <div class="agent-body">
+      <div class="row">
+        <span class="row-lbl">协议</span>
+        <div class="seg" role="radiogroup">
+          <span class="seg-ink" aria-hidden="true"></span>
+          <button role="radio" data-provider="openai" aria-checked="true">OpenAI 兼容</button>
+          <button role="radio" data-provider="anthropic" aria-checked="false">Claude</button>
+        </div>
+      </div>
+
+      <label class="row">
+        <span class="row-lbl">接口地址</span>
+        <input class="in mono" data-k="baseURL" spellcheck="false" autocomplete="off">
+      </label>
+
+      <div class="row">
+        <span class="row-lbl">API Key</span>
+        <div class="in-group">
+          <input class="in mono" data-k="apiKey" type="password" spellcheck="false" autocomplete="off" placeholder="sk-…">
+          <button class="icon-btn" data-act="reveal" type="button" aria-label="显示密钥"><svg><use href="#i-eye"/></svg></button>
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="row-lbl">模型</span>
+        <div class="combo">
+          <div class="in-group">
+            <input class="in mono" data-k="model" spellcheck="false" autocomplete="off" placeholder="拉取或手动输入" role="combobox" aria-expanded="false">
+            <button class="fetch" data-act="fetch" type="button"><svg><use href="#i-sync"/></svg><span>拉取</span></button>
+          </div>
+          <div class="combo-list" role="listbox" hidden></div>
+        </div>
+      </div>
+
+      <div class="row row-split">
+        <div class="mini">
+          <span class="row-lbl">温度 <output class="num" data-out="temperature">0.7</output></span>
+          <input type="range" data-k="temperature" min="0" max="2" step="0.1">
+        </div>
+        <label class="mini">
+          <span class="row-lbl">最大输出</span>
+          <input class="in mono in-num" data-k="maxTokens" type="number" min="256" max="200000" step="256">
+        </label>
+      </div>
+      <p class="param-hint" hidden></p>
+
+      <label class="row row-switch">
+        <span class="row-lbl">流式输出</span>
+        <span class="switch"><input type="checkbox" data-k="stream"><i></i></span>
+      </label>
+
+      <div class="row row-split">
+        <label class="mini" title="一次请求最长允许多久（秒），超过就断开报错">
+          <span class="row-lbl">请求超时（秒）</span>
+          <input class="in mono in-num" data-k="timeoutSec" type="number" min="30" max="7200" step="30">
+        </label>
+        <label class="mini" title="流式输出时，上游多久完全没有数据就判定卡住（秒）">
+          <span class="row-lbl">无数据超时（秒）</span>
+          <input class="in mono in-num" data-k="stallSec" type="number" min="15" max="1800" step="15">
+        </label>
+      </div>
+    </div>
+  </article>
+</template>
+
+<aside class="logdrawer" id="logdrawer" aria-label="运行日志" hidden>
+  <header class="ld-head">
+    <div class="ld-title"><span class="eyebrow">Run log</span><b>运行日志</b></div>
+    <div class="ld-filter" role="group" aria-label="级别">
+      <button type="button" data-lv="all" aria-pressed="true">全部</button>
+      <button type="button" data-lv="WARN" aria-pressed="false">警告+</button>
+      <button type="button" data-lv="ERROR" aria-pressed="false">错误</button>
+    </div>
+    <button class="ld-close" type="button" id="ld-close" aria-label="关闭日志"><svg><use href="#i-close"/></svg></button>
+  </header>
+  <div class="ld-live" id="ld-live" hidden></div>
+  <ol class="ld-list" id="ld-list"></ol>
+  <footer class="ld-foot">
+    <span class="ld-path" id="ld-path"></span>
+    <button class="ghost sm" type="button" id="ld-copy"><svg><use href="#i-copy"/></svg><span>复制</span></button>
+    <button class="ghost sm" type="button" id="ld-open"><svg><use href="#i-folder"/></svg><span>打开文件夹</span></button>
+  </footer>
+</aside>
+
+<script src="app.js"></script>
+</body>
+</html>
