@@ -304,3 +304,20 @@ func TestUntilDoneStopsOnCancel(t *testing.T) {
 		t.Fatalf("got %d %s", len(res.Rounds), res.StopReason)
 	}
 }
+
+func TestUseCaseReachesA(t *testing.T) {
+	var seen []string
+	a := judgeServer(t, []string{`{"executed":true,"score":9.5,"verdict":"v","edits":[]}`}, &seen)
+	defer a.Close()
+	b := echoB()
+	defer b.Close()
+	ea := llm.Endpoint{Provider: "openai", BaseURL: a.URL, APIKey: "k", Model: "x"}
+	eb := llm.Endpoint{Provider: "openai", BaseURL: b.URL, APIKey: "k", Model: "y"}
+	Run(context.Background(), ea, eb, Brief{UserTask: "t", UseCase: "部署在我自己的 VPS 上", TargetScore: 9}, func(Event) {})
+	if !strings.Contains(seen[0], "【真实使用场景") || !strings.Contains(seen[0], "部署在我自己的 VPS 上") {
+		t.Fatalf("use case missing:\n%s", seen[0])
+	}
+	if !strings.Contains(judgeSystem, "不得虚构身份、授权或许可") {
+		t.Fatal("judge rule changed")
+	}
+}

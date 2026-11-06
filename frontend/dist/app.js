@@ -377,7 +377,7 @@ function choose(k, v) {
 
 /* brief */
 const F = {
-  system: () => $("#f-system"), task: () => $("#f-task"), criteria: () => $("#f-criteria"), notes: () => $("#f-notes"),
+  system: () => $("#f-system"), task: () => $("#f-task"), criteria: () => $("#f-criteria"), notes: () => $("#f-notes"), usecase: () => $("#f-usecase"),
 };
 function fillBrief() {
   const b = S.cfg.brief;
@@ -385,6 +385,7 @@ function fillBrief() {
   F.task().value = b.userTask || "";
   F.criteria().value = b.criteria || "";
   F.notes().value = b.directorNotes || "";
+  F.usecase().value = b.useCase || "";
   if (b.directorNotes) $("#fold-notes").open = true;
   $("#f-until").checked = !!b.untilDone; syncUntil();
   $("#f-exec").checked = b.requireExecution !== false;
@@ -402,7 +403,7 @@ function syncChips() {
   $$("#chips button").forEach((b) => b.classList.toggle("is-on", v.split("\n").map((s) => s.trim()).includes(b.dataset.chip)));
 }
 function bindBrief() {
-  const map = { "f-system": "systemPrompt", "f-task": "userTask", "f-criteria": "criteria", "f-notes": "directorNotes" };
+  const map = { "f-system": "systemPrompt", "f-task": "userTask", "f-criteria": "criteria", "f-notes": "directorNotes", "f-usecase": "useCase" };
   for (const [id, key] of Object.entries(map)) {
     const ta = $("#" + id);
     ta.addEventListener("input", () => { S.cfg.brief[key] = ta.value; autosize(ta); updCount(ta); if (id === "f-criteria") syncChips(); save(); });
@@ -1065,7 +1066,7 @@ async function boot() {
   S.cfg = cfg || {
     a: { provider: "anthropic", baseURL: DEF.anthropic, apiKey: "", model: "", temperature: 0.3, maxTokens: 4096, stream: true, timeoutSec: 900, stallSec: 180 },
     b: { provider: "openai", baseURL: DEF.openai, apiKey: "", model: "", temperature: 0.7, maxTokens: 4096, stream: true, timeoutSec: 900, stallSec: 180 },
-    brief: { systemPrompt: "", userTask: "", criteria: "", directorNotes: "", maxRounds: 10, targetScore: 9, requireExecution: true, evolve: "chain", untilDone: false },
+    brief: { systemPrompt: "", userTask: "", criteria: "", directorNotes: "", useCase: "", maxRounds: 10, targetScore: 9, requireExecution: true, evolve: "chain", untilDone: false },
   };
   for (const k of ["a", "b"]) { fillAgent(k); bindAgent(k); }
   fillBrief(); bindBrief(); bindGlobal(); bindArchive(); bindLog();
