@@ -160,13 +160,17 @@
       <div class="agent-slot" id="slot-b"></div>
 
       <footer class="launch" data-reveal>
-          <div class="ctl">
+          <div class="ctl ctl-rounds">
             <span class="ctl-lbl">最多轮数</span>
             <div class="stepper">
               <button type="button" data-step="-1" aria-label="减少轮数"><svg><use href="#i-minus"/></svg></button>
               <output id="o-rounds">10</output>
               <button type="button" data-step="1" aria-label="增加轮数"><svg><use href="#i-plus"/></svg></button>
             </div>
+            <label class="until" title="忽略轮数，一直改到达标（B 也真正执行了）为止；请求失败会自动重试。随时可以手动停止">
+              <span class="switch sw-a"><input type="checkbox" id="f-until"><i></i></span>
+              <span>直到完成</span>
+            </label>
           </div>
           <div class="ctl ctl-target">
             <span class="ctl-lbl">达标分</span>

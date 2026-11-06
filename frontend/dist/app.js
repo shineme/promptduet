@@ -89,6 +89,11 @@ function setEvolve(mode, animate) {
   if (!animate) ink.style.transition = "none";
   requestAnimationFrame(() => { placeInk(seg, `[data-evolve="${mode}"]`); if (!animate) requestAnimationFrame(() => (ink.style.transition = "")); });
 }
+function syncUntil() {
+  const on = !!S.cfg.brief.untilDone, o = $("#o-rounds");
+  o.closest(".ctl").classList.toggle("is-until", on);
+  o.textContent = on ? "∞" : S.cfg.brief.maxRounds || 10;
+}
 function placeInk(container, sel) {
   const ink = container.querySelector(".seg-ink, .nav-ink");
   const btn = container.querySelector(sel);
@@ -381,7 +386,7 @@ function fillBrief() {
   F.criteria().value = b.criteria || "";
   F.notes().value = b.directorNotes || "";
   if (b.directorNotes) $("#fold-notes").open = true;
-  $("#o-rounds").textContent = b.maxRounds || 10;
+  $("#f-until").checked = !!b.untilDone; syncUntil();
   $("#f-exec").checked = b.requireExecution !== false;
   setEvolve(b.evolve || "chain", false);
   const t = $("#f-target"); t.value = b.targetScore || 9; setRangeFill(t); $("#o-target").textContent = fmt1(+t.value);
@@ -407,8 +412,13 @@ function bindBrief() {
     if (lines.includes(b.dataset.chip)) lines = lines.filter((l) => l !== b.dataset.chip); else lines.push(b.dataset.chip);
     ta.value = lines.join("\n"); S.cfg.brief.criteria = ta.value; autosize(ta); syncChips(); save();
   }));
+  $("#f-until").addEventListener("change", (e) => {
+    S.cfg.brief.untilDone = e.target.checked; syncUntil(); save();
+    toast(e.target.checked ? "不限轮数：一直改到达标为止，失败会自动重试，可随时停止" : `最多 ${S.cfg.brief.maxRounds || 10} 轮`);
+  });
   $$("[data-step]").forEach((b) => b.addEventListener("click", () => {
     const n = Math.max(1, Math.min(50, (S.cfg.brief.maxRounds || 10) + +b.dataset.step));
+    if (S.cfg.brief.untilDone) return;
     S.cfg.brief.maxRounds = n; const o = $("#o-rounds"); o.textContent = n;
     o.animate([{ transform: `translateY(${b.dataset.step > 0 ? 8 : -8}px)`, opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 320, easing: "cubic-bezier(.16,1,.3,1)" });
     save();
@@ -531,6 +541,10 @@ function onDuet(ev) {
       if (S.sel == null) renderStage();
       renderBoard(); renderRail();
       break;
+    case "retry_reset":
+      // a retried request: drop what the failed attempt streamed
+      if (s.live) { const k = ev.text === "a" ? "a" : "b"; s.live[k + "Text"] = ""; s.live[k + "Think"] = ""; paintLive(); }
+      break;
     case "b_delta":
       if (s.live) { s.live.bText += ev.text; paintLive(); }
       break;
@@ -588,7 +602,7 @@ function bestIdx(rounds) {
 function reasonText(r) {
   if (!r) return "";
   if (r === "target") return "达到目标分，收官";
-  if (r === "max_rounds") return "已跑满轮数";
+  if (r === "max_rounds") return S.session && S.session.brief.untilDone ? "已到安全上限 200 轮" : "已跑满轮数";
   if (r === "stopped") return "已手动停止";
   return "出错：" + r.replace(/^error:\s*/, "");
 }
@@ -599,7 +613,7 @@ function renderArena(fresh) {
   $("#arena-empty").hidden = !!s; $("#arena").hidden = !s;
   if (!s) return;
   $("#arena-target").textContent = fmt1(s.brief.targetScore || 9);
-  $("#round-max").textContent = s.brief.maxRounds || 10;
+  $("#round-max").textContent = s.brief.untilDone ? "∞" : s.brief.maxRounds || 10;
   if (fresh) { $("#best-score").dataset.v = "0"; $("#best-score").textContent = "—"; setStatus("b", "开局"); caption("开局 · A 把 Prompt 交给 B"); $("#elapsed").textContent = "00:00 用时"; }
   if (!s.running && !fresh) { setStatus(s.stopReason.startsWith("error") ? "error" : "done", s.stopReason.startsWith("error") ? "出错" : "已收官"); caption(reasonText(s.stopReason)); }
   renderBoard(); renderRail(); renderChart(); renderStage(true); renderCurtain();
@@ -806,7 +820,7 @@ function renderCurtain() {
 function renderChart() {
   const s = S.session, box = $("#chart"); if (!s) return;
   const W = Math.max(200, box.clientWidth - 52), H = 104, padT = 14, padB = 22;
-  const max = Math.max(s.brief.maxRounds || 10, s.rounds.length, 2);
+  const max = s.brief.untilDone ? Math.max(6, s.rounds.length + 2) : Math.max(s.brief.maxRounds || 10, s.rounds.length, 2);
   const x = (i) => ((i - 1) / (max - 1)) * W;
   const y = (v) => padT + (1 - v / 10) * (H - padT - padB);
   const tgt = s.brief.targetScore || 9;
@@ -1051,7 +1065,7 @@ async function boot() {
   S.cfg = cfg || {
     a: { provider: "anthropic", baseURL: DEF.anthropic, apiKey: "", model: "", temperature: 0.3, maxTokens: 4096, stream: true, timeoutSec: 900, stallSec: 180 },
     b: { provider: "openai", baseURL: DEF.openai, apiKey: "", model: "", temperature: 0.7, maxTokens: 4096, stream: true, timeoutSec: 900, stallSec: 180 },
-    brief: { systemPrompt: "", userTask: "", criteria: "", directorNotes: "", maxRounds: 10, targetScore: 9, requireExecution: true, evolve: "chain" },
+    brief: { systemPrompt: "", userTask: "", criteria: "", directorNotes: "", maxRounds: 10, targetScore: 9, requireExecution: true, evolve: "chain", untilDone: false },
   };
   for (const k of ["a", "b"]) { fillAgent(k); bindAgent(k); }
   fillBrief(); bindBrief(); bindGlobal(); bindArchive(); bindLog();

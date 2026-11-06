@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"promptduet/internal/llm"
 )
@@ -242,5 +243,64 @@ func TestBestModeReturnsToBest(t *testing.T) {
 	}
 	if !strings.Contains(seen[1], "基准 system prompt：第 1 轮") || strings.Contains(seen[0], "基准 system prompt：") {
 		t.Fatalf("A not shown the best base:\n%s", seen[1])
+	}
+}
+
+func TestUntilDoneIgnoresMaxRoundsAndRetries(t *testing.T) {
+	old := retryDelays
+	retryDelays = []time.Duration{10 * time.Millisecond, 10 * time.Millisecond}
+	defer func() { retryDelays = old }()
+
+	var seen []string
+	bodies := []string{}
+	for k := 0; k < 4; k++ {
+		bodies = append(bodies, `{"executed":true,"score":5,"verdict":"v","edits":[{"append":"再加一条。"}]}`)
+	}
+	bodies = append(bodies, `{"executed":true,"score":9.5,"verdict":"done","edits":[]}`)
+	a := judgeServer(t, bodies, &seen)
+	defer a.Close()
+	calls := 0
+	b := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if calls == 2 { // one transient upstream failure in round 2
+			http.Error(w, `{"error":{"message":"overloaded"}}`, 529)
+			return
+		}
+		bb, _ := json.Marshal("<?php echo 'done'; // a long enough complete answer")
+		fmt.Fprintf(w, `{"choices":[{"message":{"content":%s}}]}`, bb)
+	}))
+	defer b.Close()
+	ea := llm.Endpoint{Provider: "openai", BaseURL: a.URL, APIKey: "k", Model: "x"}
+	eb := llm.Endpoint{Provider: "openai", BaseURL: b.URL, APIKey: "k", Model: "y"}
+	resets := 0
+	res := Run(context.Background(), ea, eb, Brief{SystemPrompt: "起点。", UserTask: "t", MaxRounds: 2, UntilDone: true, TargetScore: 9}, func(e Event) {
+		if e.Type == "retry_reset" {
+			resets++
+		}
+	})
+	if len(res.Rounds) != 5 || res.StopReason != "target" {
+		t.Fatalf("want 5 rounds to target despite MaxRounds=2, got %d %s", len(res.Rounds), res.StopReason)
+	}
+	if calls != 6 {
+		t.Fatalf("B should have been retried once: %d calls", calls)
+	}
+}
+
+func TestUntilDoneStopsOnCancel(t *testing.T) {
+	var seen []string
+	a := judgeServer(t, []string{`{"executed":true,"score":2,"verdict":"v","edits":[]}`}, &seen)
+	defer a.Close()
+	b := echoB()
+	defer b.Close()
+	ea := llm.Endpoint{Provider: "openai", BaseURL: a.URL, APIKey: "k", Model: "x"}
+	eb := llm.Endpoint{Provider: "openai", BaseURL: b.URL, APIKey: "k", Model: "y"}
+	ctx, cancel := context.WithCancel(context.Background())
+	res := Run(ctx, ea, eb, Brief{UserTask: "t", UntilDone: true, TargetScore: 9}, func(e Event) {
+		if e.Type == "a_done" && e.Round == 3 {
+			cancel()
+		}
+	})
+	if res.StopReason != "stopped" || len(res.Rounds) != 3 {
+		t.Fatalf("got %d %s", len(res.Rounds), res.StopReason)
 	}
 }

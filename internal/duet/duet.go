@@ -15,12 +15,16 @@ import (
 )
 
 type Brief struct {
-	SystemPrompt  string  `json:"systemPrompt"`
-	UserTask      string  `json:"userTask"`
-	Criteria      string  `json:"criteria"`
-	DirectorNotes string  `json:"directorNotes"`
-	MaxRounds     int     `json:"maxRounds"`
-	TargetScore   float64 `json:"targetScore"`
+	SystemPrompt  string `json:"systemPrompt"`
+	UserTask      string `json:"userTask"`
+	Criteria      string `json:"criteria"`
+	DirectorNotes string `json:"directorNotes"`
+	MaxRounds     int    `json:"maxRounds"`
+	// UntilDone ignores MaxRounds: the loop keeps going until the target is
+	// reached (and B actually executed, if required) or the user stops it.
+	// Transient request failures are retried instead of ending the session.
+	UntilDone   bool    `json:"untilDone"`
+	TargetScore float64 `json:"targetScore"`
 	// RequireExecution: a round where B refuses / does not actually deliver
 	// never counts as a pass, whatever the score.
 	RequireExecution bool `json:"requireExecution"`
@@ -175,7 +179,12 @@ func Run(ctx context.Context, a, b llm.Endpoint, brief Brief, emit func(Event)) 
 	res := Result{Best: -1}
 	prompt := brief.SystemPrompt
 
-	for i := 1; i <= brief.MaxRounds; i++ {
+	for i := 1; brief.UntilDone || i <= brief.MaxRounds; i++ {
+		if brief.UntilDone && i > HardRoundCap {
+			llm.Logf(ctx, "WARN", "不限轮数模式已到安全上限 %d 轮，停止", HardRoundCap)
+			res.StopReason = "max_rounds"
+			break
+		}
 		if ctx.Err() != nil {
 			res.StopReason = "stopped"
 			break
@@ -191,8 +200,15 @@ func Run(ctx context.Context, a, b llm.Endpoint, brief Brief, emit func(Event)) 
 
 		// B performs.
 		t0 := time.Now()
-		out, bu, err := llm.Chat(hooks("b"), b, prompt, []llm.Message{{Role: "user", Content: brief.UserTask}}, func(d string) {
-			emit(Event{Type: "b_delta", Round: i, Text: d})
+		var out string
+		var bu llm.Usage
+		err := retry(ctx, brief.UntilDone, fmt.Sprintf("R%02d B", i), func() error {
+			emit(Event{Type: "retry_reset", Round: i, Text: "b"})
+			var e error
+			out, bu, e = llm.Chat(hooks("b"), b, prompt, []llm.Message{{Role: "user", Content: brief.UserTask}}, func(d string) {
+				emit(Event{Type: "b_delta", Round: i, Text: d})
+			})
+			return e
 		})
 		r.BMillis = time.Since(t0).Milliseconds()
 		r.Output, r.BUsage = out, bu
@@ -211,7 +227,14 @@ func Run(ctx context.Context, a, b llm.Endpoint, brief Brief, emit func(Event)) 
 				bestBase = &judgeBase{Round: br.Index, Score: br.Judgement.Score, Prompt: br.SystemPrompt}
 			}
 		}
-		raw, au, jerr := judge(hooks("a"), a, brief, prompt, out, res.Rounds, i, bestBase, emit)
+		var raw string
+		var au llm.Usage
+		jerr := retry(ctx, brief.UntilDone, fmt.Sprintf("R%02d A", i), func() error {
+			emit(Event{Type: "retry_reset", Round: i, Text: "a"})
+			var e error
+			raw, au, e = judge(hooks("a"), a, brief, prompt, out, res.Rounds, i, bestBase, emit)
+			return e
+		})
 		r.AMillis = time.Since(t1).Milliseconds()
 		r.JudgeRaw, r.AUsage = raw, au
 		if jerr != nil {
@@ -229,6 +252,11 @@ func Run(ctx context.Context, a, b llm.Endpoint, brief Brief, emit func(Event)) 
 			}, nil)
 			if err2 == nil {
 				j, perr = parseJudgement(raw2)
+			}
+			if perr != nil && brief.UntilDone {
+				// Don't end an until-done session over one unreadable verdict.
+				llm.Logf(ctx, "WARN", "R%02d A 的评判仍无法解析（%v），本轮记 0 分，沿用当前 prompt 进入下一轮", i, perr)
+				j, perr = Judgement{raw: map[string]any{}, Executed: !LooksLikeRefusal(out), Verdict: "A 的评判无法解析，本轮记 0 分", Issues: []string{"A 的输出不是合法 JSON：" + perr.Error()}}, nil
 			}
 			if perr != nil {
 				res.Rounds = append(res.Rounds, r)
@@ -295,6 +323,35 @@ func Run(ctx context.Context, a, b llm.Endpoint, brief Brief, emit func(Event)) 
 	}
 	emit(Event{Type: "finished", Data: res})
 	return res
+}
+
+// HardRoundCap stops an until-done session that never converges.
+const HardRoundCap = 200
+
+// retryDelays: waits between attempts in until-done mode.
+var retryDelays = []time.Duration{5 * time.Second, 15 * time.Second, 30 * time.Second, 60 * time.Second, 60 * time.Second, 120 * time.Second}
+
+// retry runs fn once, or in until-done mode retries transient failures with
+// backoff. Cancellation always stops immediately.
+func retry(ctx context.Context, enabled bool, label string, fn func() error) error {
+	err := fn()
+	if !enabled {
+		return err
+	}
+	for n := 0; err != nil && n < len(retryDelays); n++ {
+		if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+			return err
+		}
+		d := retryDelays[n]
+		llm.Logf(ctx, "WARN", "%s 请求失败（%v），%d 秒后第 %d 次重试", label, err, int(d/time.Second), n+1)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(d):
+		}
+		err = fn()
+	}
+	return err
 }
 
 func finish(res Result, ctx context.Context, err error, emit func(Event)) Result {

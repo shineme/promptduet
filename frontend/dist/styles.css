@@ -704,3 +704,18 @@ input[type="range"]:disabled { opacity: .35; cursor: not-allowed; }
 .notes .note-base { color: var(--ink); }
 .notes .note-base span { color: var(--a); }
 .notes .note-fail { color: #ffc46b; }
+
+/* until-done toggle beside the round stepper */
+.until { display: inline-flex; align-items: center; gap: 8px; margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--ink-3); cursor: pointer; white-space: nowrap; transition: color .2s; }
+.until:hover { color: var(--ink-2); }
+.until:has(input:checked) { color: var(--ink); }
+.ctl.is-until .stepper button { opacity: .25; pointer-events: none; }
+.ctl.is-until .stepper output { color: var(--a); }
+/* the floating launch bar is narrow in the 3-column layout: tighten it */
+.launch { container: launch / inline-size; }
+@container launch (max-width: 700px) {
+  .ctl-rounds .ctl-lbl { display: none; }
+  .cta kbd { display: none; }
+  .ctl-target { min-width: 120px; }
+  .until { margin-left: 2px; }
+}
